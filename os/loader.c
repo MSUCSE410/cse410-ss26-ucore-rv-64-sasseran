@@ -51,6 +51,8 @@ int run_all_app()
 		/*
 		* LAB1: you may need to initialize your new fields of proc here
 		*/
+		memset(p->syscall_times, 0, sizeof(p->syscall_times)); // Reset all syscall counters to 0
+		p->start_time = 0; // records the first scheduled time (in cycles)
 	}
 	return 0;
 }
