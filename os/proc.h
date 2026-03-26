@@ -6,6 +6,8 @@
 
 #define NPROC (16)
 
+#define MAX_SYSCALL_NUM 500
+
 // Saved registers for kernel context switches.
 struct context {
 	uint64 ra;
@@ -41,11 +43,26 @@ struct proc {
 	/*
 	* LAB1: you may need to add some new fields here
 	*/
+	unsigned int syscall_times[MAX_SYSCALL_NUM]; // record the times of each system call
+	uint64 start_time; // record the start time of the process	
 };
 
 /*
 * LAB1: you may need to define struct for TaskInfo here
 */
+typedef enum{
+	UnInit,
+	Ready,
+	Running,
+	Exited,
+} TaskStatus;
+
+typedef struct{
+	TaskStatus status; // current task state
+	// Count how many times this process has invoked each syscall.
+	unsigned int syscall_times[MAX_SYSCALL_NUM];
+	int time; // running time in ms
+} TaskInfo;
 
 struct proc *curr_proc();
 void exit(int);

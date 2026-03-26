@@ -33,6 +33,8 @@ void proc_init(void)
 		/*
 		* LAB1: you may need to initialize your new fields of proc here
 		*/
+		memset(p->syscall_times, 0, sizeof(p->syscall_times)); // Reset all syscall counters to 0
+		p->start_time = 0; // records the first scheduled time (in cycles)
 	}
 	idle.kstack = (uint64)boot_stack_top;
 	idle.pid = 0;
@@ -86,6 +88,9 @@ void scheduler(void)
 				/*
 				* LAB1: you may need to init proc start time here
 				*/
+				if (p->start_time == 0) {
+					p->start_time = r_time(); // record the start time of the process
+				}
 				p->state = RUNNING;
 				current_proc = p;
 				swtch(&idle.context, &p->context);
