@@ -77,6 +77,9 @@ int bin_loader(uint64 start, uint64 end, struct proc *p)
 	p->trapframe->epc = va_start;
 	p->max_page = PGROUNDUP(p->ustack + USTACK_SIZE - 1) / PAGE_SIZE;
 	p->state = RUNNABLE;
+	
+	memset(p->syscall_times, 0, sizeof(p->syscall_times)); // Reset all syscall counters to 0
+	p->start_time = 0; // records the first scheduled time (in cycles)
 	return 0;
 }
 
@@ -100,3 +103,4 @@ int load_init_app()
 	add_task(p);
 	return 0;
 }
+
