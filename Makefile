@@ -28,7 +28,7 @@ HEADER_DEP = $(addsuffix .d, $(basename $(C_OBJS)))
 #	AS_OBJS += $(BUILDDIR)/$K/initproc.o
 #endif
 
-INIT_PROC ?= usershell
+INIT_PROC ?= ch6_usertest
 
 $(BUILDDIR)/$K/initproc.o: $K/initproc.S
 	@mkdir -p $(@D)
