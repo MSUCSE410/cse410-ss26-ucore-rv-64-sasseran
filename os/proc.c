@@ -396,6 +396,7 @@ int spawn(char *filename)
 	}
 
 	// Set the parent of the new process to the current process
+	// for pushing purposes
 	np->parent = parent;
 
 	// Load the executable into the new process's memory
