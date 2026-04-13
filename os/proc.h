@@ -7,6 +7,10 @@
 #define NPROC (512)
 #define FD_BUFFER_SIZE (16)
 
+#define MAX_SYSCALL_NUM 500
+
+#define BIG_STRIDE 65536 // to reduce integer division errors
+
 struct file;
 
 // Saved registers for kernel context switches.
@@ -41,11 +45,34 @@ struct proc {
 	struct trapframe *trapframe; // data page for trampoline.S
 	struct context context; // swtch() here to run process
 	uint64 max_page;
+
+	unsigned int syscall_times[MAX_SYSCALL_NUM]; // record the times of each system call
+	uint64 start_time; // record the start time of the process	
+
+
 	struct proc *parent; // Parent process
 	uint64 exit_code;
 	struct file *files
 		[FD_BUFFER_SIZE]; //File descriptor table, using to record the files opened by the process
+
+	// added for stride scheduling
+	int priority; // priority of the process, higher means more CPU time
+	int stride; // tracks how much CPU time the process has used
 };
+
+typedef enum{
+	UnInit,
+	Ready,
+	Running,
+	Exited,
+} TaskStatus;
+
+typedef struct{
+	TaskStatus status; // current task state
+	// Count how many times this process has invoked each syscall.
+	unsigned int syscall_times[MAX_SYSCALL_NUM];
+	int time; // running time in ms
+} TaskInfo;
 
 int cpuid();
 struct proc *curr_proc();
@@ -55,6 +82,7 @@ void scheduler() __attribute__((noreturn));
 void sched();
 void yield();
 int fork();
+int spawn(char *filename);
 int exec(char *, char **);
 int wait(int, int *);
 void add_task(struct proc *);

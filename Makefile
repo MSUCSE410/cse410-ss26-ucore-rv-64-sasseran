@@ -16,21 +16,25 @@ GDB = $(TOOLPREFIX)gdb
 CP = cp
 BUILDDIR = build
 C_SRCS = $(wildcard $K/*.c)
-AS_SRCS = $(wildcard $K/*.S)
+AS_SRCS = $(filter-out $K/initproc.S,$(wildcard $K/*.S))
 C_OBJS = $(addprefix $(BUILDDIR)/, $(addsuffix .o, $(basename $(C_SRCS))))
 AS_OBJS = $(addprefix $(BUILDDIR)/, $(addsuffix .o, $(basename $(AS_SRCS))))
-OBJS = $(C_OBJS) $(AS_OBJS)
+OBJS = $(C_OBJS) $(AS_OBJS) $(BUILDDIR)/$K/initproc.o
 
 HEADER_DEP = $(addsuffix .d, $(basename $(C_OBJS)))
 
-ifeq (,$(findstring initproc.o,$(OBJS)))
-	AS_OBJS += $(BUILDDIR)/$K/initproc.o
-endif
+
+#ifeq (,$(findstring initproc.o,$(OBJS)))
+#	AS_OBJS += $(BUILDDIR)/$K/initproc.o
+#endif
 
 INIT_PROC ?= usershell
 
-$(K)/initproc.o: $K/initproc.S
-$(K)/initproc.S: scripts/initproc.py .FORCE
+$(BUILDDIR)/$K/initproc.o: $K/initproc.S
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$K/initproc.S: scripts/initproc.py .FORCE
 	@$(PY) scripts/initproc.py $(INIT_PROC)
 
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
@@ -81,7 +85,7 @@ $(HEADER_DEP): $(BUILDDIR)/$K/%.d : $K/%.c
         sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
         rm -f $@.$$$$
 
-INIT_PROC ?= usershell
+# INIT_PROC ?= usershell
 
 build: build/kernel
 
@@ -92,8 +96,9 @@ build/kernel: $(OBJS) os/kernel.ld
 	@echo 'Build kernel done'
 
 clean:
-	rm -rf $(BUILDDIR) os/initproc.S
-	rm $(F)/*.img
+#	rm -rf $(BUILDDIR) os/initproc.S
+	rm -rf $(BUILDDIR)
+	rm -f $(F)/*.img
 
 # BOARD
 BOARD		?= qemu

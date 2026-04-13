@@ -6,6 +6,9 @@
 
 void kvm_init();
 void kvmmap(pagetable_t, uint64, uint64, uint64, int);
+// Walk the page table and return the PTE for virtual address va.
+// If alloc != 0, allocate missing page-table pages along the way
+pte_t *walk(pagetable_t, uint64, int); 
 int mappages(pagetable_t, uint64, uint64, uint64, int);
 pagetable_t uvmcreate(uint64);
 int uvmcopy(pagetable_t, pagetable_t, uint64);

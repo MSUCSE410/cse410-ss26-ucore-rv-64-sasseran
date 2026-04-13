@@ -37,6 +37,11 @@ void proc_init()
 		p->state = UNUSED;
 		p->kstack = (uint64)kstack[p - pool];
 		p->trapframe = (struct trapframe *)trapframe[p - pool];
+
+		memset(p->syscall_times, 0, sizeof(p->syscall_times)); // Reset all syscall counters to 0
+		p->start_time = 0; // records the first scheduled time (in cycles)
+
+
 	}
 	idle.kstack = (uint64)boot_stack_top;
 	idle.pid = IDLE_PID;
@@ -96,6 +101,8 @@ found:
 	memset((void *)p->files, 0, sizeof(struct file *) * FD_BUFFER_SIZE);
 	p->context.ra = (uint64)usertrapret;
 	p->context.sp = p->kstack + KSTACK_SIZE;
+	p->priority = 16; // default priority
+	p->stride = 0; // default stride, starts at 0 
 	return p;
 }
 
@@ -119,6 +126,36 @@ void scheduler()
 {
 	struct proc *p;
 	for (;;) {
+		// stride scheduling: picking the process with the smallest stride
+		struct proc *best = 0;
+
+		for (p = pool; p < &pool[NPROC]; p++) {
+			if (p->state == RUNNABLE) {
+				// Record first time the process is scheduled
+				if (p->start_time == 0) {
+					p->start_time = r_time(); // record the start time of the process
+				}
+
+				// Find process with smallest stride value
+				if (best == 0 || p->stride < best->stride) {
+					best = p;
+				}
+			}
+		}
+
+		if (best == 0) {
+			panic("all app are over!\n");
+		}
+
+		// Update stride based on priority
+		// High priority -> smaller increment -> runs more often
+		best->stride += BIG_STRIDE / best->priority; // update stride
+		tracef("swtich to proc %d", best - pool);
+		best->state = RUNNING;
+		current_proc = best;
+		swtch(&idle.context, &best->context);
+		
+
 		/*int has_proc = 0;
 		for (p = pool; p < &pool[NPROC]; p++) {
 			if (p->state == RUNNABLE) {
@@ -131,7 +168,7 @@ void scheduler()
 		}
 		if(has_proc == 0) {
 			panic("all app are over!\n");
-		}*/
+		}
 		p = fetch_task();
 		if (p == NULL) {
 			panic("all app are over!\n");
@@ -139,7 +176,7 @@ void scheduler()
 		tracef("swtich to proc %d", p - pool);
 		p->state = RUNNING;
 		current_proc = p;
-		swtch(&idle.context, &p->context);
+		swtch(&idle.context, &p->context);*/
 	}
 }
 
@@ -161,8 +198,9 @@ void sched()
 // Give up the CPU for one scheduling round.
 void yield()
 {
+	// Mark current process as runnable and give up CPU
 	current_proc->state = RUNNABLE;
-	add_task(current_proc);
+	//add_task(current_proc); // removed because stride scheduling doesn't use a queue
 	sched();
 }
 
@@ -215,8 +253,8 @@ int fork()
 	// Cause fork to return 0 in the child.
 	np->trapframe->a0 = 0;
 	np->parent = p;
-	np->state = RUNNABLE;
-	add_task(np);
+	np->state = RUNNABLE;// child is ready to run (no queue needed for stride scheduling)
+	//add_task(np);
 	return np->pid;
 }
 
@@ -297,7 +335,7 @@ int wait(int pid, int *code)
 			return -1;
 		}
 		p->state = RUNNABLE;
-		add_task(p);
+		//add_task(p);
 		sched();
 	}
 }
@@ -335,4 +373,47 @@ int fdalloc(struct file *f)
 		}
 	}
 	return -1;
+}
+
+
+// Create a new process and directly load the program
+int spawn(char *filename)
+{
+	struct proc *parent = curr_proc(); // get the current process
+	struct proc *np = allocproc(); // allocate a new process
+	struct inode *ip; // inode for the executable file
+
+	// Check if process allocation was successful
+	if (np == NULL) {
+		return -1;
+	}
+
+	// Load the executable file into the new process's memory
+	ip = namei(filename);
+	if (ip == NULL) {
+		np->state = UNUSED;
+		return -1;
+	}
+
+	// Set the parent of the new process to the current process
+	np->parent = parent;
+
+	// Load the executable into the new process's memory
+	if (bin_loader(ip, np) < 0) {
+		iput(ip);
+		np->state = UNUSED;
+		return -1;
+	}
+
+	// Initialize standard I/O for the new process
+	if (init_stdio(np) < 0) {
+		iput(ip);
+		np->state = UNUSED;
+		return -1;
+	}
+
+	// Free the inode after loading the executable, since it's no longer needed
+	iput(ip);
+	np->state = RUNNABLE;
+	return np->pid;
 }
