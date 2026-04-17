@@ -481,7 +481,7 @@ int sys_semaphore_down(int semaphore_id)
 	p->semaphore_available[semaphore_id]--;
 	p->semaphore_allocation[tid][semaphore_id]++;
 
-	// testing purposes ONLY ONLY
+	// testing purposes ONLY ONLY ONLY
 
 	return 0;
 }
