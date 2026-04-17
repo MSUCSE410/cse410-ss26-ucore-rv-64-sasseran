@@ -28,6 +28,9 @@ ifeq (,$(findstring initproc.o,$(OBJS)))
 endif
 
 INIT_PROC ?= usershell
+ifeq ($(CHAPTER),8)
+INIT_PROC = ch8b_usertest
+endif
 
 $(K)/initproc.o: $K/initproc.S
 $(K)/initproc.S: scripts/initproc.py .FORCE
@@ -54,7 +57,6 @@ else ifeq ($(LOG), trace)
 CFLAGS += -D LOG_LEVEL_TRACE
 endif
 
-# Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
 endif
@@ -62,7 +64,6 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
-# empty target
 .FORCE:
 
 LDFLAGS = -z max-page-size=4096
@@ -81,8 +82,6 @@ $(HEADER_DEP): $(BUILDDIR)/$K/%.d : $K/%.c
         sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
         rm -f $@.$$$$
 
-INIT_PROC ?= usershell
-
 build: build/kernel
 
 build/kernel: $(OBJS) os/kernel.ld
@@ -95,7 +94,6 @@ clean:
 	rm -rf build os/initproc.S
 	rm -f nfs/*.img
 
-# BOARD
 BOARD		?= qemu
 SBI			?= rustsbi
 BOOTLOADER	:= ./bootloader/rustsbi-qemu.bin
@@ -118,7 +116,6 @@ $(F)/fs-copy.img: $(F)/fs.img
 run: build/kernel $(F)/fs-copy.img
 	$(QEMU) $(QEMUOPTS)
 
-# QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::15234"; \
 	else echo "-s -p 15234"; fi)
@@ -134,4 +131,3 @@ user:
 	make -C user CHAPTER=$(CHAPTER) BASE=$(BASE)
 
 test: user run
-
