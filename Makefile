@@ -5,6 +5,8 @@ K = os
 U = user
 F = nfs
 
+CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
+
 TOOLPREFIX = riscv64-unknown-elf-
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gcc
@@ -57,6 +59,7 @@ else ifeq ($(LOG), trace)
 CFLAGS += -D LOG_LEVEL_TRACE
 endif
 
+# Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
 endif
@@ -64,6 +67,7 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
+# empty target
 .FORCE:
 
 LDFLAGS = -z max-page-size=4096
@@ -79,8 +83,8 @@ $(C_OBJS): $(BUILDDIR)/$K/%.o : $K/%.c  $(BUILDDIR)/$K/%.d
 $(HEADER_DEP): $(BUILDDIR)/$K/%.d : $K/%.c
 	@mkdir -p $(@D)
 	@set -e; rm -f $@; $(CC) -MM $< $(INCLUDEFLAGS) > $@.$$$$; \
-        sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-        rm -f $@.$$$$
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
 
 build: build/kernel
 
@@ -94,6 +98,7 @@ clean:
 	rm -rf build os/initproc.S
 	rm -f nfs/*.img
 
+# BOARD
 BOARD		?= qemu
 SBI			?= rustsbi
 BOOTLOADER	:= ./bootloader/rustsbi-qemu.bin
@@ -103,9 +108,9 @@ QEMUOPTS = \
 	-nographic \
 	-machine virt \
 	-bios $(BOOTLOADER) \
-	-kernel build/kernel	\
+	-kernel build/kernel \
 	-drive file=$(F)/fs-copy.img,if=none,format=raw,id=x0 \
-    -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 $(F)/fs.img:
 	make -C $(F)
@@ -116,6 +121,7 @@ $(F)/fs-copy.img: $(F)/fs.img
 run: build/kernel $(F)/fs-copy.img
 	$(QEMU) $(QEMUOPTS)
 
+# QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::15234"; \
 	else echo "-s -p 15234"; fi)
@@ -124,8 +130,6 @@ debug: build/kernel .gdbinit $(F)/fs-copy.img
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB) &
 	sleep 1
 	$(GDB)
-
-CHAPTER ?= $(shell git rev-parse --abbrev-ref HEAD | grep -oP 'ch\K[0-9]')
 
 user:
 	make -C user CHAPTER=$(CHAPTER) BASE=$(BASE)
